@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zen Sanctuary | Center Your Mind</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons for UI elements -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020617; margin: 0; overflow: hidden; }
+        .bg-transition { transition: background-color 4s ease-in-out; }
+        .scale-transition { transition: transform 8s ease-in-out; }
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin-slow-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+        .animate-spin-slow { animation: spin-slow 40s linear infinite; }
+        .animate-spin-reverse { animation: spin-slow-reverse 25s linear infinite; }
+        
+        /* Pulse effect for the start button */
+        .btn-glow {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+            animation: pulse-glow 3s infinite;
+        }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.5); }
+            100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.2); }
+        }
+    </style>
+</head>
+<body class="min-h-screen w-full flex items-center justify-center relative">
+
+    <!-- Dynamic Background Overlay -->
+    <div id="bg-overlay" class="absolute inset-0 opacity-25 bg-indigo-900 bg-transition"></div>
+
+    <!-- Breathing Visualizer -->
+    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div id="visualizer-scale" class="relative scale-transition flex items-center justify-center">
+            <div class="absolute w-[450px] h-[450px] rounded-full border border-white/5 animate-spin-slow"></div>
+            
+            <svg viewBox="0 0 200 200" class="w-[320px] h-[320px] absolute opacity-40 animate-spin-reverse">
+                <path id="wave-path" fill="url(#waveGradient)" d="M100,20C55.8,20,20,55.8,20,100s35.8,80,80,80s80-35.8,80-80S144.2,20,100,20z M100,160c-33.1,0-60-26.9-60-60s26.9-60,60-60s60,26.9,60,60S133.1,160,100,160z" />
+                <defs>
+                    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop id="grad-stop-1" offset="0%" stop-color="#818cf8" />
+                        <stop id="grad-stop-2" offset="100%" stop-color="#4f46e5" />
+                    </linearGradient>
+                </defs>
+            </svg>
+
+            <div id="glow-orb" class="w-56 h-56 rounded-full blur-[100px] transition-all duration-[4000ms] bg-indigo-400/20"></div>
+        </div>
+    </div>
+
+    <!-- Content UI -->
+    <div class="max-w-md w-full p-8 text-center space-y-12 z-10 text-white">
+        <div class="flex justify-center items-center space-x-4">
+            <div class="bg-slate-900/50 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-full flex items-center space-x-2">
+                <div id="status-icon" class="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse"></div>
+                <span id="status-label" class="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-300">Ready</span>
+            </div>
+            <div class="bg-slate-900/50 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-full flex items-center space-x-2">
+                <i data-lucide="timer" class="w-3 h-3 text-slate-400"></i>
+                <span id="timer-text" class="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-300">2:00</span>
+            </div>
+        </div>
+
+        <div class="space-y-6 relative">
+            <div id="loader" class="hidden absolute inset-0 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-md z-20 space-y-4 rounded-xl">
+                <i data-lucide="loader-2" class="animate-spin text-lime-400 w-10 h-10"></i>
+                <p class="text-lime-400 text-[10px] font-bold uppercase tracking-[0.3em]">Calming the Mind...</p>
+            </div>
+            <h1 id="main-text" class="text-6xl font-thin tracking-[0.4em] transition-all duration-[2000ms] uppercase">Zen</h1>
+            <p id="sub-text" class="text-slate-200 text-xl font-light italic min-h-[5rem] flex items-center justify-center px-4 leading-relaxed tracking-wide transition-colors duration-1000">
+                Take a moment for yourself.
+            </p>
+        </div>
+
+        <div id="progress-container" class="flex w-full gap-2 px-2">
+            <!-- Progress bars will be injected here via JS -->
+        </div>
+
+        <div id="action-container" class="pt-8">
+            <button id="start-btn" class="btn-glow group relative inline-flex items-center justify-center px-12 py-5 font-bold tracking-[0.3em] text-white uppercase transition-all duration-300 border border-white/10 bg-white/5 backdrop-blur-md rounded-full hover:bg-white hover:text-slate-950 hover:scale-105 active:scale-95">
+                <i data-lucide="sparkles" class="w-4 h-4 mr-3 fill-current"></i>
+                <span>Begin Session</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURATION
+        const apiKey = ""; // <--- API Key goes here
+        
+        let isActive = false;
+        let timeLeft = 120;
+        let currentStep = -1;
+        let audioCache = {};
+        let sequenceRunning = false;
+        let timerInterval;
+
+        const scripts = [
+            "Welcome, let's begin your relaxation journey.",
+            "Breathe in through your nose and hold it.",
+            "Now, exhale through your mouth and relax.",
+            "Breathe in through your nose and hold it.",
+            "Exhale. breathe through your mouth.",
+            "Breathe in through your nose and hold it.",
+            "Exhale. you are doing awesome.",
+            "Breathe in through your nose and hold it.",
+            "Exhale. you are an amazing person.",
+            "Breathe in through your nose and hold it.",
+            "Exhale. you deserve the best in life.",
+            "Breathe in through your nose and hold it.",
+            "Great job, now relax and enjoy your day."
+        ];
+
+        lucide.createIcons();
+
+        // Initialize Progress Bars
+        const progressContainer = document.getElementById('progress-container');
+        for (let i = 0; i < 12; i++) {
+            const barWrap = document.createElement('div');
+            barWrap.className = 'h-1.5 flex-1 bg-slate-900/80 rounded-full overflow-hidden border border-white/5';
+            const barFill = document.createElement('div');
+            barFill.id = `progress-bar-${i}`;
+            barFill.className = `h-full transition-all duration-[16ms] ease-linear ${i % 2 !== 0 ? 'bg-lime-400' : 'bg-cyan-400'}`;
+            barFill.style.width = '0%';
+            barWrap.appendChild(barFill);
+            progressContainer.appendChild(barWrap);
+        }
+
+        async function fetchAudio(index) {
+            if (audioCache[index]) return audioCache[index];
+            if (!apiKey) return null;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Say in a soft, peaceful voice: ${scripts[index]}` }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Aoede" } } }
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                const base64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (!base64) return null;
+
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                
+                const buffer = new ArrayBuffer(44 + bytes.length);
+                const view = new DataView(buffer);
+                const writeStr = (o, s) => { for(let i=0; i<s.length; i++) view.setUint8(o+i, s.charCodeAt(i)); };
+                
+                writeStr(0, 'RIFF'); view.setUint32(4, 36 + bytes.length, true);
+                writeStr(8, 'WAVE'); writeStr(12, 'fmt ');
+                view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+                view.setUint16(22, 1, true); view.setUint32(24, 24000, true);
+                view.setUint32(28, 48000, true); view.setUint16(32, 2, true);
+                view.setUint16(34, 16, true); writeStr(36, 'data');
+                view.setUint32(40, bytes.length, true);
+                new Uint8Array(buffer, 44).set(bytes);
+                
+                const blob = new Blob([buffer], { type: 'audio/wav' });
+                const audio = new Audio(URL.createObjectURL(blob));
+                audioCache[index] = audio;
+                return audio;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function updateUI(step) {
+            const isFinal = step === 12;
+            const isInhale = step % 2 !== 0 && !isFinal && step > 0;
+            const isExhale = step % 2 === 0 && !isFinal && step > 0;
+
+            const mainText = document.getElementById('main-text');
+            const bg = document.getElementById('bg-overlay');
+            const visualizer = document.getElementById('visualizer-scale');
+            const orb = document.getElementById('glow-orb');
+            const statusIcon = document.getElementById('status-icon');
+            const statusLabel = document.getElementById('status-label');
+
+            if (step === 0) {
+                mainText.textContent = "START";
+                statusIcon.className = "w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse";
+                statusLabel.textContent = "Active";
+            }
+            else if (isFinal) {
+                mainText.textContent = "PEACE";
+                statusIcon.className = "w-1.5 h-1.5 rounded-full bg-slate-500";
+                statusLabel.textContent = "Finished";
+            }
+            else if (isInhale) {
+                mainText.textContent = "INHALE";
+            }
+            else if (isExhale) {
+                mainText.textContent = "EXHALE";
+            }
+
+            if (isInhale) {
+                bg.className = "absolute inset-0 opacity-25 bg-lime-500 bg-transition";
+                visualizer.style.transform = "scale(1.4)";
+                orb.className = "w-56 h-56 rounded-full blur-[100px] transition-all duration-[4000ms] bg-lime-400/40";
+            } else if (isExhale) {
+                bg.className = "absolute inset-0 opacity-25 bg-cyan-500 bg-transition";
+                visualizer.style.transform = "scale(0.85)";
+                orb.className = "w-56 h-56 rounded-full blur-[100px] transition-all duration-[4000ms] bg-cyan-400/40";
+            }
+        }
+
+        async function startSession() {
+            if (isActive) return;
+            
+            // Basic check for visual feedback if no key
+            if (!apiKey) {
+                document.getElementById('sub-text').textContent = "Please add your API Key in the code to hear the guide.";
+            }
+
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('start-btn').classList.add('hidden');
+            
+            try {
+                // Pre-fetch the first audio to ensure it's ready
+                await fetchAudio(0);
+                document.getElementById('loader').classList.add('hidden');
+                isActive = true;
+                sequenceRunning = true;
+                
+                // Reset timer and bars
+                timeLeft = 120;
+                for(let i=0; i<12; i++) document.getElementById(`progress-bar-${i}`).style.width = '0%';
+
+                timerInterval = setInterval(() => {
+                    timeLeft = Math.max(0, timeLeft - 1);
+                    const mins = Math.floor(timeLeft / 60);
+                    const secs = timeLeft % 60;
+                    document.getElementById('timer-text').textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                    if (timeLeft === 0) clearInterval(timerInterval);
+                }, 1000);
+                
+                runSequence();
+            } catch (e) {
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('start-btn').classList.remove('hidden');
+            }
+        }
+
+        async function runSequence() {
+            for (let i = 0; i < scripts.length; i++) {
+                if (!sequenceRunning) break;
+                document.getElementById('sub-text').textContent = scripts[i];
+                updateUI(i);
+                
+                const audio = await fetchAudio(i);
+                if (audio) await audio.play();
+                
+                if (i < 12) {
+                    const duration = i === 0 ? 5000 : 8000;
+                    const startTime = Date.now();
+                    const bar = document.getElementById(`progress-bar-${i}`);
+                    
+                    // Smooth progress bar update
+                    while (Date.now() - startTime < duration) {
+                        bar.style.width = Math.min(((Date.now() - startTime) / duration) * 100, 100) + '%';
+                        await new Promise(r => setTimeout(r, 16));
+                    }
+                } else {
+                    // Ending delay
+                    await new Promise(r => setTimeout(r, 6000));
+                }
+            }
+            isActive = false;
+            clearInterval(timerInterval);
+            document.getElementById('start-btn').classList.remove('hidden');
+            document.getElementById('start-btn').innerHTML = `<i data-lucide="rotate-ccw" class="w-4 h-4 mr-3"></i><span>Restart</span>`;
+            lucide.createIcons();
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startSession);
+    </script>
+</body>
+</html>
